@@ -1,0 +1,82 @@
+version: '3.3'
+
+services:
+
+  application:
+    restart: always
+    image: flairsoft/application_1_1
+    build:
+      context: .
+      dockerfile: application_1_1.dockerFile
+    ports:
+      - "8002:3000"
+    depends_on:
+      - postgres
+    links:
+      - postgres
+    networks:
+      flairsoft:
+        aliases:
+          - ai.flairsoft.local
+
+  postgres:
+    restart: always
+    build:
+      context: ./docker_init
+      dockerfile: postgres.dockerfile
+    command: postgres -c "max_connections=500"
+    ports:
+      - '5433:5432'
+    volumes:
+      - 'pgdata:/var/lib/postgresql/data/'
+    environment:
+      - POSTGRES_PASSWORD=flairsoft
+      - POSTGRES_USER=flairsoft
+    networks:
+      flairsoft:
+        aliases:
+          - postgres.flairsoft.local
+
+  gateway:
+    restart: always
+    image: flairsoft/gateway
+    build:
+      context: .
+      dockerfile: gateway.dockerFile
+    ports:
+      - "8001:3500"
+    depends_on:
+      - postgres
+    links:
+      - postgres
+    networks:
+      flairsoft:
+        aliases:
+          - ai.flairsoft.local
+
+  migration:
+    restart: always
+    image: flairsoft/migration
+    build:
+      context: .
+      dockerfile: migration/dockerfile
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 10
+    depends_on:
+      - postgres
+    links:
+      - postgres
+    networks:
+      flairsoft:
+        aliases:
+          - migration.flairsoft.local
+
+volumes:
+  pgdata:
+
+networks:
+  flairsoft:
+    driver: bridge
+#    name: flairsoft.local
